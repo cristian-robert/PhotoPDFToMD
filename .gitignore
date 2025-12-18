@@ -44,7 +44,9 @@ Thumbs.db
 
 # Project specific
 *.pdf
-*.md
-!README.md
 /tmp/
 test_output/
+
+# Generated markdown (exclude test outputs but include documentation)
+test_*.md
+output*.md
