@@ -18,6 +18,14 @@ import pytesseract
 class PDFToMarkdownConverter:
     """Convert PDF files to Markdown, skipping photo pages"""
     
+    # Photo detection thresholds and constants
+    MIN_TEXT_BLOCKS = 5
+    MIN_OCR_CONFIDENCE = 30
+    MIN_TEXT_LENGTH = 50
+    CANNY_THRESHOLD_LOW = 50
+    CANNY_THRESHOLD_HIGH = 150
+    EDGE_DENSITY_THRESHOLD = 0.3
+    
     def __init__(self, language: str = "ron", photo_threshold: float = 0.15):
         """
         Initialize the converter
@@ -26,6 +34,9 @@ class PDFToMarkdownConverter:
             language: Tesseract language code (ron for Romanian)
             photo_threshold: Threshold for photo detection (0-1). Lower = more sensitive
         """
+        if not 0 <= photo_threshold <= 1:
+            raise ValueError("photo_threshold must be between 0 and 1")
+        
         self.language = language
         self.photo_threshold = photo_threshold
     
@@ -63,19 +74,19 @@ class PDFToMarkdownConverter:
             text_blocks = [text for text in ocr_data['text'] if text.strip()]
             
             # Check if we have meaningful text
-            if not text_blocks or len(text_blocks) < 5:
+            if not text_blocks or len(text_blocks) < self.MIN_TEXT_BLOCKS:
                 return True  # Likely a photo if very little text detected
             
             # Calculate average confidence
             if confidences:
                 avg_confidence = sum(confidences) / len(confidences)
                 # Low confidence suggests photo rather than clear text
-                if avg_confidence < 30:
+                if avg_confidence < self.MIN_OCR_CONFIDENCE:
                     return True
             
             # Calculate text density
             total_text_length = sum(len(text) for text in text_blocks)
-            if total_text_length < 50:  # Very little text content
+            if total_text_length < self.MIN_TEXT_LENGTH:  # Very little text content
                 return True
                 
         except Exception as e:
@@ -84,11 +95,11 @@ class PDFToMarkdownConverter:
             pass
         
         # Additional check: edge detection for photo characteristics
-        edges = cv2.Canny(gray, 50, 150)
+        edges = cv2.Canny(gray, self.CANNY_THRESHOLD_LOW, self.CANNY_THRESHOLD_HIGH)
         edge_density = np.sum(edges > 0) / edges.size
         
         # High edge density with complex patterns suggests photo
-        if edge_density > 0.3:
+        if edge_density > self.EDGE_DENSITY_THRESHOLD:
             return True
         
         return False
